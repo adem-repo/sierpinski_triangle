@@ -1,12 +1,8 @@
 const dark = '#0D0D0D';
 const gold = '#D9A036';
-let vertices = [];
-let started = false;
-let dot;
-
-let count = 100000;
-let initDot = false;
-let numbers = false;
+const downTriangles = [];
+const timing = 1;
+let depth = 7;
 
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
@@ -18,18 +14,7 @@ function resizeCanvas() {
 
 window.addEventListener('resize', resizeCanvas);
 
-function drawCircle(x, y, r = 0.5) {
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.stroke()
-}
-
-function drawTriangle(ctx, side) {
-    const h = side * (Math.sqrt(3)/2);
-    vertices = [[0, -h / 2], [-side / 2, h / 2], [side / 2, h / 2]];
-
-    ctx.strokeStyle = gold;
+function drawTriangle(ctx, vertices, fill, showCoords) {
     ctx.beginPath();
     ctx.moveTo(...vertices[0]);
     ctx.lineTo(...vertices[1]);
@@ -37,29 +22,81 @@ function drawTriangle(ctx, side) {
     ctx.lineTo(...vertices[0]);
     ctx.stroke();
     ctx.closePath();
-}
 
-function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function fractalize() {
-    for (let i = 0; i <= count; i++) {
-        setTimeout(() => {
-            const [vx, vy] = vertices[getRandomInt(0, 2)];
-            const [dx, dy] = dot;
-            const dotInBetween = [(vx + dx) / 2, (vy + dy) / 2];
-            dot = dotInBetween;
-            ctx.font = "10px Arial";
-            ctx.fillStyle = gold;
-            drawCircle(...dotInBetween);
-            if (numbers) {
-                ctx.fillText(`${i}`, dot[0] + 5, dot[1] - 5);
-            }
-        }, 100);
+    if (fill) {
+        ctx.fill();
     }
+
+    if (showCoords) {
+        vertices.forEach(([x, y]) => {
+
+            ctx.fillStyle = "red";
+            ctx.fillText(`${x}:${y}`, x + 5, y - 5);
+        });
+    }
+}
+
+function getDotInBetween([vx1, vy1], [vx2, vy2]) {
+    return [(vx1 + vx2) / 2, (vy1 + vy2) / 2];
+}
+
+function getDownTriangle([v1, v2, v3]) {
+    return [
+        getDotInBetween(v1, v2),
+        getDotInBetween(v2, v3),
+        getDotInBetween(v1, v3),
+    ];
+}
+
+function getUpTriangles([v1, v2, v3], [iv1, iv2, iv3]) {
+    return [
+        [v1, iv3, iv1],
+        [v2, iv1, iv2],
+        [v3, iv3, iv2]
+    ];
+}
+
+function drawInitialTriangle(ctx, side) {
+    ctx.strokeStyle = gold;
+    ctx.fillStyle = gold;
+    const [cx, cy] = [canvas.width / 2, canvas.height / 2];
+
+    const h = 600 * (Math.sqrt(3)/2);
+    let vertices = [[0, (-h / 2)], [-side / 2, h / 2], [side / 2, h / 2]];
+    vertices = vertices.map(([x, y]) => [x + cx, y + cy]);
+
+    drawTriangle(ctx, vertices, true);
+    return vertices;
+}
+
+function fractalize2(initialUpTriangle) {
+    const upTriangles = [[initialUpTriangle]];
+
+    while (depth) {
+        const lastLevelTriangles = upTriangles[upTriangles.length - 1];
+        const level = [];
+        lastLevelTriangles.forEach(([v1, v2, v3]) => {
+            const downTriangle = getDownTriangle([v1, v2, v3]);
+            downTriangles.push(downTriangle);
+            const newUpTriangles = getUpTriangles([v1, v2, v3], downTriangle);
+            level.push(...newUpTriangles);
+        });
+        upTriangles.push(level);
+        depth--;
+    }
+}
+
+function drawTriangles() {
+    if (!downTriangles.length) {
+        return;
+    }
+    const downTriangle = downTriangles.shift();
+    ctx.strokeStyle = dark;
+    ctx.fillStyle = dark;
+    setTimeout(() => {
+        drawTriangle(ctx, downTriangle, true);
+        drawTriangles();
+    }, timing);
 }
 
 function init() {
@@ -68,32 +105,10 @@ function init() {
     ctx.fillStyle = dark;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    const initialTriangleVertices = drawInitialTriangle(ctx, 600);
 
-    const [cx, cy] = [canvas.width / 2, canvas.height / 2];
-    ctx.translate(cx, cy);
-
-    drawTriangle(ctx, 600, cx, cy)
-
-    canvas.addEventListener('click', (event) => {
-        if (started) {
-            return;
-        }
-
-        if (!dot) {
-            if (initDot) {
-                const { clientX: x, clientY: y } = event;
-                ctx.fillStyle = '000000';
-                dot = [x - cx, y - cy];
-                drawCircle(...dot, 4);
-                return;
-            } else {
-                dot = vertices[0];
-            }
-        }
-
-        started = true;
-        fractalize();
-    });
+    fractalize2(initialTriangleVertices);
+    drawTriangles();
 }
 
 document.addEventListener('readystatechange', () => {
