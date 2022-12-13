@@ -1,8 +1,9 @@
-const dark = '#0D0D0D';
-const gold = '#D9A036';
+const DARK_GREY = '#0D0D0D';
+const GOLD = '#D9A036';
 const downTriangles = [];
-const timing = 1;
-let depth = 7;
+const TIMING = 1;
+const animate = true;
+let depth = 8;
 
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
@@ -20,7 +21,6 @@ function drawTriangle(ctx, vertices, fill, showCoords) {
     ctx.lineTo(...vertices[1]);
     ctx.lineTo(...vertices[2]);
     ctx.lineTo(...vertices[0]);
-    ctx.stroke();
     ctx.closePath();
 
     if (fill) {
@@ -57,8 +57,7 @@ function getUpTriangles([v1, v2, v3], [iv1, iv2, iv3]) {
 }
 
 function drawInitialTriangle(ctx, side) {
-    ctx.strokeStyle = gold;
-    ctx.fillStyle = gold;
+    ctx.fillStyle = GOLD;
     const [cx, cy] = [canvas.width / 2, canvas.height / 2];
 
     const h = 600 * (Math.sqrt(3)/2);
@@ -91,18 +90,25 @@ function drawTriangles() {
         return;
     }
     const downTriangle = downTriangles.shift();
-    ctx.strokeStyle = dark;
-    ctx.fillStyle = dark;
-    setTimeout(() => {
+    ctx.strokeStyle = DARK_GREY;
+    ctx.fillStyle = DARK_GREY;
+
+    const draw = () => {
         drawTriangle(ctx, downTriangle, true);
         drawTriangles();
-    }, timing);
+    }
+
+    if (animate) {
+        setTimeout(draw, TIMING);
+    } else {
+        draw();
+    }
 }
 
 function init() {
     resizeCanvas();
 
-    ctx.fillStyle = dark;
+    ctx.fillStyle = DARK_GREY;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const initialTriangleVertices = drawInitialTriangle(ctx, 600);
